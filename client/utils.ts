@@ -1,7 +1,9 @@
 import * as anchor from "@project-serum/anchor";
+import { Wallet } from "@project-serum/anchor";
 import * as spl from "@solana/spl-token-v2";
 import { PublicKey } from "@solana/web3.js";
 import * as sbv2 from "@switchboard-xyz/switchboard-v2";
+import { AnchorWallet } from "@switchboard-xyz/switchboard-v2";
 import * as anchor24 from "anchor-24-2";
 import Big from "big.js";
 import { PROGRAM_ID_CLI } from "./generated/programId";
@@ -57,6 +59,7 @@ export async function getFlipProgram(
 }
 
 export async function createFlipUser(
+  userWallet: anchor.AnchorProvider,
   TOKENMINT:PublicKey,
   program: FlipProgram,
   queueAccount: sbv2.OracleQueueAccount,
@@ -93,7 +96,7 @@ export async function createFlipUser(
     wSolAmount * anchor.web3.LAMPORTS_PER_SOL
   );
 
-  const user = await User.create(flipProgram, newSwitchboardProgram, TOKENMINT);
+  const user = await User.create(userWallet, flipProgram, newSwitchboardProgram, TOKENMINT);
 
   return {
     keypair,

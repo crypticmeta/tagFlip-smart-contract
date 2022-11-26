@@ -13,6 +13,7 @@ import {
 } from "@solana/web3.js";
 import { promiseWithTimeout, sleep } from "@switchboard-xyz/sbv2-utils";
 import {
+  AnchorWallet,
   Callback,
   OracleQueueAccount,
   packTransactions,
@@ -31,6 +32,7 @@ import {
   GameTypeValue,
 } from "./types";
 import { verifyPayerBalance } from "./utils";
+import { Wallet } from "@project-serum/anchor";
 
 export interface UserBetPlaced {
   roundId: anchor.BN;
@@ -207,51 +209,53 @@ export class User {
   }
 
   static async create(
+    userWallet: anchor.AnchorProvider,
     program: FlipProgram,
     switchboardProgram: anchor24.Program,
     TOKENMINT: PublicKey,
   ): Promise<User> {
-    const req = await User.createReq(program, switchboardProgram, TOKENMINT);
+   
+    const req = await User.createReq(program, switchboardProgram, TOKENMINT, userWallet.wallet.publicKey);
 
     const packedTxns = await packTransactions(
       program.provider.connection,
       [new Transaction().add(...req.ixns)],
       req.signers as Keypair[],
-      programWallet(program as any).publicKey
+      userWallet.publicKey
     );
 
-    const signedTxs = await (
-      program.provider as anchor.AnchorProvider
-    ).wallet.signAllTransactions(packedTxns);
+    console.log('signing with ', userWallet.wallet.publicKey.toBase58())
+
+    const signedTxs = await userWallet.wallet.signAllTransactions(packedTxns);
     const promises = [];
     const sigs: string[] = [];
     for (let k = 0; k < packedTxns.length; k += 1) {
-      console.log(signedTxs[k]?.instructions.length, ' instruction length for k = ',k)
-      console.log(signedTxs[k]?.instructions[1]?.programId?.toBase58(), ' tx ', k)
-      if(k==1)
-      signedTxs[k].instructions.map((item, idx) => { 
-        console.log('keys for instruction ', idx, ' of k=', k)
-        if(idx == 1)
-          item.keys.map((key, i) => {
-            if (i == 0)
-              console.log("user key")
-            if (i == 1)
-              console.log("house key")
-            if (i == 2)
-              console.log("mint key")
-            if (i == 3)
-              console.log("authority key")
-            if (i == 4)
-              console.log("escrow key")
-            if (i == 5)
-              console.log("reward_address key")
-            if (i == 6)
-              console.log("vrf key")
-            if (i == 7)
-              console.log("payer key")
-          console.log(key.pubkey.toBase58(), ' key ',i, ' of ', item.keys.length)
-        })
-      })
+      // console.log(signedTxs[k]?.instructions.length, ' instruction length for k = ',k)
+      // console.log(signedTxs[k]?.instructions[1]?.programId?.toBase58(), ' tx ', k)
+      // if(k==1)
+      // signedTxs[k].instructions.map((item, idx) => { 
+      //   console.log('keys for instruction ', idx, ' of k=', k)
+      //   if(idx == 1)
+      //     item.keys.map((key, i) => {
+      //       if (i == 0)
+      //         console.log("user key")
+      //       if (i == 1)
+      //         console.log("house key")
+      //       if (i == 2)
+      //         console.log("mint key")
+      //       if (i == 3)
+      //         console.log("authority key")
+      //       if (i == 4)
+      //         console.log("escrow key")
+      //       if (i == 5)
+      //         console.log("reward_address key")
+      //       if (i == 6)
+      //         console.log("vrf key")
+      //       if (i == 7)
+      //         console.log("payer key")
+      //     console.log(key.pubkey.toBase58(), ' key ',i, ' of ', item.keys.length)
+      //   })
+      // })
       const sig = await program.provider.connection.sendRawTransaction(
         signedTxs[k].serialize(),
         // req.signers,
@@ -306,6 +310,7 @@ export class User {
       house.publicKey,
       payerPubkey
     );
+    console.log(userKey.toBase58(), 'userKey', payerPubkey.toBase58(), 'payer')
     const rewardAddress = await spl.getAssociatedTokenAddress(
       flipMint.address,
       payerPubkey,

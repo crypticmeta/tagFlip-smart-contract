@@ -23,6 +23,8 @@ describe("switchboard-vrf-flip", () => {
     (program.provider as anchor.AnchorProvider).wallet as AnchorWallet
   ).payer;
 
+  console.log((program.provider as anchor.AnchorProvider).wallet.publicKey.toBase58(), 'user wallet')
+
   let switchboard: SwitchboardTestContext;
 
   let house: House;
@@ -85,7 +87,11 @@ describe("switchboard-vrf-flip", () => {
   it("initialize user 1", async () => {
     try {
       
-      flipUser = await createFlipUser(TOKENMINT, program, switchboard.queue);
+      flipUser = await createFlipUser(
+        (program.provider as anchor.AnchorProvider),
+        TOKENMINT,
+        program,
+        switchboard.queue);
 
       console.log({
         ...flipUser.user.toJSON(),
