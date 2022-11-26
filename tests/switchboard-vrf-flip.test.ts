@@ -97,7 +97,11 @@ describe("switchboard-vrf-flip", () => {
   it("get flipUser",async() => {
     if (flipUser === undefined) { 
       //@ts-ignore
-      flipUser = await User.load(program, payer.publicKey, TOKENMINT);
+      flipUser = await createFlipUser(
+        (program.provider as anchor.AnchorProvider),
+        TOKENMINT,
+        program,
+        switchboard.queue);
       // console.log(flipUser, 'flipUser')
       // console.log(flipUser?.user.toJSON(), ' user');
       //@ts-ignore
@@ -108,104 +112,110 @@ describe("switchboard-vrf-flip", () => {
     }
   })
 
-  it("user 1 requests an airdrop", async () => {
-    if (flipUser === undefined) {
-      throw new Error(`failed to find user to airdrop`);
-    }
-
-    try {
-      const startingBalance =
-        await program.provider.connection.getTokenAccountBalance(
-          //@ts-ignore
-          flipUser.state.rewardAddress
-        );
-      const airdropTxn = await program.provider.connection.requestAirdrop(
-        payer.publicKey,
-        1 * anchor.web3.LAMPORTS_PER_SOL
-      );
-      await program.provider.connection.confirmTransaction(airdropTxn);
-
-      const newTokenBalance =
-        await program.provider.connection.getTokenAccountBalance(
-          //@ts-ignore
-          flipUser.state.rewardAddress
-        );
-      
-      if (TOKENMINT.toBase58() === "So11111111111111111111111111111111111111112")      
-      {
-        let instructions: TransactionInstruction[] = [];
-      const associatedTokenAcc = await getAssociatedTokenAddress(
-        TOKENMINT,
-        payer.publicKey
-      );
-        instructions.push(
-          SystemProgram.transfer({
-            fromPubkey: payer?.publicKey,
-            toPubkey: associatedTokenAcc,
-            lamports: Number(1 * LAMPORTS_PER_SOL),
-          })
-        );
-        instructions.push(
-          createSyncNativeInstruction(associatedTokenAcc, TOKEN_PROGRAM_ID)
-        );
-
-        const signature = await program.provider.sendAndConfirm!(
-          new Transaction().add(...instructions),
-          []
-        ).catch(err => console.log(err, 'err creating wsol'));
-
-        console.log(signature, 'tx')
-      }
-
-      if (Number(newTokenBalance.value.amount) === Number(startingBalance)) {
-        throw new Error(`Failed to request an airdrop`);
-      } else {
-        console.log(
-          `Users Token Balance: ${newTokenBalance.value.uiAmountString}`
-        );
-      }
-    } catch (error) {
-      console.error(error);
-      throw error;
-    }
-  });
-
-  // it("user 1 places a bet", async () => {
+  // it("user 1 requests an airdrop", async () => {
   //   if (flipUser === undefined) {
-  //     throw new Error(`failed to find user to place a bet for`);
+  //     throw new Error(`failed to find user to airdrop`);
   //   }
 
   //   try {
-  //     const newUserState = await flipUser.user.placeBetAndAwaitFlip(
-  //       GameTypeValue.COIN_FLIP,
-  //       1,
-  //       new anchor.BN(0),
-  //       flipUser.switchTokenWallet,
-  //       45
+  //     const startingBalance =
+  //       await program.provider.connection.getTokenAccountBalance(
+  //         flipUser.user.state.rewardAddress
+  //       );
+  //     const airdropTxn = await program.provider.connection.requestAirdrop(
+  //       payer.publicKey,
+  //       1 * anchor.web3.LAMPORTS_PER_SOL
   //     );
-  //     flipUser.user.state = newUserState;
+  //     await program.provider.connection.confirmTransaction(airdropTxn);
 
-  //     if (flipUser.user.isWinner(newUserState)) {
-  //       console.log(`User won! Result = ${newUserState.currentRound.result}`);
+  //     const newTokenBalance =
+  //       await program.provider.connection.getTokenAccountBalance(
+  //         flipUser.user.state.rewardAddress
+  //       );
+      
+  //     if (TOKENMINT.toBase58() === "So11111111111111111111111111111111111111112")      
+  //     {
+  //       let instructions: TransactionInstruction[] = [];
+  //     const associatedTokenAcc = await getAssociatedTokenAddress(
+  //       TOKENMINT,
+  //       payer.publicKey
+  //     );
+  //       instructions.push(
+  //         SystemProgram.transfer({
+  //           fromPubkey: payer?.publicKey,
+  //           toPubkey: associatedTokenAcc,
+  //           lamports: Number(1 * LAMPORTS_PER_SOL),
+  //         })
+  //       );
+  //       instructions.push(
+  //         createSyncNativeInstruction(associatedTokenAcc, TOKEN_PROGRAM_ID)
+  //       );
+
+  //       const signature = await program.provider.sendAndConfirm!(
+  //         new Transaction().add(...instructions),
+  //         []
+  //       ).catch(err => console.log(err, 'err creating wsol'));
+
+  //       console.log(signature, 'tx')
+  //     }
+
+  //     if (Number(newTokenBalance.value.amount) === Number(startingBalance)) {
+  //       throw new Error(`Failed to request an airdrop`);
   //     } else {
   //       console.log(
-  //         `whomp whomp, loser! User guess = ${newUserState.currentRound.guess}, Result = ${newUserState.currentRound.result}`
+  //         `Users Token Balance: ${newTokenBalance.value.uiAmountString}`
   //       );
   //     }
   //   } catch (error) {
   //     console.error(error);
   //     throw error;
   //   }
-
-  //   await flipUser.user.reload();
-  //   console.log({
-  //     ...flipUser.user.toJSON(),
-  //     historyIdx: flipUser.user.state.history.idx,
-  //     history: flipUser.user.state.history.rounds
-  //       .slice(0, flipUser.user.state.history.idx)
-  //       .map((i) => i.toJSON()),
-  //   });
   // });
+
+  it("user 1 places a bet", async () => {
+    // console.log(flipUser, 'flipUser')
+    if (flipUser === undefined) {
+      throw new Error(`failed to find user to place a bet for`);
+    }
+
+    try {
+      await flipUser.user.placeBetAndAwaitFlip(
+        TOKENMINT,
+        GameTypeValue.COIN_FLIP,
+        2,
+        new anchor.BN(0.1),
+        flipUser.switchTokenWallet,
+        45
+      ).catch(err=>console.log(err=>"errr... not won"));
+      flipUser = await createFlipUser(
+        (program.provider as anchor.AnchorProvider),
+        TOKENMINT,
+        program,
+        switchboard.queue);
+      
+      const newUserState = flipUser.user.state;
+
+      if (flipUser.user.isWinner(newUserState)) {
+        console.log(`User won! Result = ${newUserState.currentRound.result}`);
+      } else {
+        console.log(
+          `whomp whomp, loser! User guess = ${newUserState.currentRound.guess}, Result = ${newUserState.currentRound.result}`
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+
+    await flipUser.user.reload();
+    console.log({
+      ...flipUser.user.toJSON(),
+      historyIdx: flipUser.user.state.history.idx,
+      history: flipUser.user.state.history.rounds
+        .slice(0, flipUser.user.state.history.idx)
+        .map((i) => i.toJSON()),
+    });
+  });
 
   // it("user 1 places another bet", async () => {
   //   if (flipUser === undefined) {

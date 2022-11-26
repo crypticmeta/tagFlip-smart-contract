@@ -60,7 +60,7 @@ export async function getFlipProgram(
 
 export async function createFlipUser(
   userWallet: anchor.AnchorProvider,
-  TOKENMINT:PublicKey,
+  TOKENMINT: PublicKey,
   program: FlipProgram,
   queueAccount: sbv2.OracleQueueAccount,
   wSolAmount = 0.2
@@ -96,6 +96,19 @@ export async function createFlipUser(
     wSolAmount * anchor.web3.LAMPORTS_PER_SOL
   );
 
+  const loadUser = await User.load(program, userWallet.wallet.publicKey, TOKENMINT).catch(err=>console.log(err, 'user account doesnt exist yet'));
+  const switchTokenWallet2 = await spl.getAssociatedTokenAddress(
+    TOKENMINT,
+    userWallet.wallet.publicKey,
+  )
+  if (loadUser) {
+    return {
+      keypair,
+      switchboardProgram: newSwitchboardProgram,
+      switchTokenWallet: switchTokenWallet2,
+      user: loadUser,
+    };
+  }
   const user = await User.create(userWallet, flipProgram, newSwitchboardProgram, TOKENMINT);
 
   return {
@@ -131,8 +144,7 @@ export const verifyPayerBalance = async (
   const payerBalance = currentBalance ?? (await connection.getBalance(payer));
   if (payerBalance > minAmount) {
     return console.log(
-      `Payer has sufficient funds, ${
-        payerBalance / anchor.web3.LAMPORTS_PER_SOL
+      `Payer has sufficient funds, ${payerBalance / anchor.web3.LAMPORTS_PER_SOL
       } > ${minAmount / anchor.web3.LAMPORTS_PER_SOL}`
     );
   }

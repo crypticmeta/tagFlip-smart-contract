@@ -76,6 +76,7 @@ export class User {
   }
 
   static async load(program: FlipProgram, authority: PublicKey, TOKENMINT: PublicKey): Promise<User> {
+    
     const [houseKey] = House.fromSeeds(program, TOKENMINT);
     const [userKey] = User.fromSeeds(program, houseKey, authority);
     const userState = await UserState.fetch(
@@ -161,7 +162,8 @@ export class User {
     user: PublicKey,
     escrow: PublicKey,
     vrf: PublicKey,
-    rewardAddress: PublicKey
+    rewardAddress: PublicKey,
+    TOKENMINT: PublicKey,
   ): Promise<Callback> {
     const ixnCoder = new anchor.BorshInstructionCoder(program.idl);
     const callback: Callback = {
@@ -177,6 +179,11 @@ export class User {
           pubkey: house.publicKey,
           isWritable: false,
           isSigner: false,
+        },
+        {
+          pubkey: TOKENMINT,
+          isWritable: false,
+          isSigner: false
         },
         {
           pubkey: escrow,
@@ -323,13 +330,14 @@ export class User {
     );
     const queue = await switchboardQueue.loadData();
 
-    const callback = await User.getCallback(
+    const callback = await User.getCallback(      
       program,
       house,
       userKey,
       escrowKeypair.publicKey,
       vrfSecret.publicKey,
-      rewardAddress
+      rewardAddress,
+      TOKENMINT,
     );
 
     const [permissionAccount, permissionBump] = PermissionAccount.fromSeed(
@@ -442,6 +450,47 @@ export class User {
       switchboardTokenAccount,
       payerPubkey
     );
+    
+    req.ixns.map((items, idx) => {
+      items.keys.map((item, i) => {
+        if (i == 1) {
+          console.log("house")
+          console.log(item.pubkey.toBase58(), ' key at ', i)
+        }
+        else if (i == 3) {
+          console.log("house_vault")
+          console.log(item.pubkey.toBase58(), ' key at ', i)
+        }
+        else if (i == 5) {
+          console.log("escrow")
+          console.log(item.pubkey.toBase58(), ' key at ', i)
+        }
+        else if (i == 11) {
+          console.log("vrf_escrow")
+          console.log(item.pubkey.toBase58(), ' key at ', i)
+        }
+        else if (i == 12) {
+          console.log("switchboard_program_state")
+          console.log(item.pubkey.toBase58(), ' key at ', i)
+        }
+        else if (i == 14) {
+          console.log("payer")
+          console.log(item.pubkey.toBase58(), ' key at ', i)
+        }
+        else if (i == 15) {
+          console.log("vrf_payer")
+          console.log(item.pubkey.toBase58(), ' key at ', i)
+        }
+        else if (i == 16) {
+          console.log("flip_payer")
+          console.log(item.pubkey.toBase58(), ' key at ', i)
+        }
+        else {
+          console.log(item.pubkey.toBase58(), ' key at ', i)
+        }
+        
+      })
+    })
 
     const signature = await this.program.provider.sendAndConfirm!(
       new Transaction().add(...req.ixns),
@@ -474,7 +523,9 @@ export class User {
 
     let payersWrappedSolBalance: anchor.BN;
     let payerSwitchTokenAccount: PublicKey;
+    console.log(switchboardTokenAccount.toBase58(), 'sta ')
     if (switchboardTokenAccount) {
+      
       payerSwitchTokenAccount = switchboardTokenAccount;
       payersWrappedSolBalance = new anchor.BN(
         (
@@ -534,6 +585,7 @@ export class User {
         ephemeralAccount.publicKey,
         false
       );
+    
 
       signers.push(ephemeralAccount);
       ixns.push(
@@ -563,6 +615,8 @@ export class User {
       );
     }
 
+    console.log(payerSwitchTokenAccount.toBase58(), 'psta')
+
     ixns.push(
       await this.program.methods
         .userBet({
@@ -573,6 +627,7 @@ export class User {
         .accounts({
           user: this.publicKey,
           house: this.state.house,
+          mint: TOKENMINT,
           houseVault: house.state.houseVault,
           authority: this.state.authority,
           escrow: this.state.escrow,
@@ -596,21 +651,31 @@ export class User {
     let accountWs: number;
     const awaitUpdatePromise = new Promise(
       (resolve: (value: UserState) => void) => {
+        // console.log('resolving...')
+        console.log('monitoring... ', this?.publicKey.toBase58())
         accountWs = this.program.provider.connection.onAccountChange(
           this?.publicKey ?? PublicKey.default,
           async (accountInfo) => {
+            // console.log(accountInfo, 'accountInfo')
             const user = UserState.decode(accountInfo.data);
+            // console.log(user.escrow.toBase58(), 'user')
+            // console.log(user.currentRound.result, 'result')
             if (!expectedCounter.eq(user.currentRound.roundId)) {
+              console.log('returning null')
               return;
             }
             if (user.currentRound.result === 0) {
+              console.log('returning null 2')
               return;
             }
             resolve(user);
           }
         );
+        // console.log(accountWs, 'accountWs')
       }
     );
+
+    console.log('getting result...')
 
     const result = await promiseWithTimeout(
       timeout * 1000,
@@ -639,6 +704,7 @@ export class User {
   ): Promise<UserState> {
     await this.reload();
     const currentCounter = this.state.currentRound.roundId;
+    console.log(currentCounter, 'current Counter')
 
     try {
       const placeBetTxn = await this.placeBet(
@@ -648,6 +714,7 @@ export class User {
         betAmount,
         switchboardTokenAccount
       );
+      console.log(placeBetTxn, 'tx')
     } catch (error) {
       console.error(error);
       throw error;
@@ -658,6 +725,7 @@ export class User {
         currentCounter.add(new anchor.BN(1)),
         timeout
       );
+      console.log(userState, 'userState')
       return userState;
     } catch (error) {
       console.error(error);

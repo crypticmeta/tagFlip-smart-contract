@@ -24,11 +24,12 @@ pub struct UserBet<'info> {
     )]
     pub user: AccountLoader<'info, UserState>,
     #[account(
-        seeds = [HOUSE_SEED],
+        seeds = [HOUSE_SEED, mint.key().as_ref()],
         bump = house.load()?.bump,
         has_one = house_vault
     )]
     pub house: AccountLoader<'info, HouseState>,
+    pub mint: Account<'info, Mint>,
     #[account(
         associated_token::mint = house.load()?.mint,
         associated_token::authority = house,

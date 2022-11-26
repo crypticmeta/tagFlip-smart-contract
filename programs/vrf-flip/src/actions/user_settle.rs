@@ -19,11 +19,12 @@ pub struct UserSettle<'info> {
     )]
     pub user: AccountLoader<'info, UserState>,
     #[account(
-        seeds = [HOUSE_SEED],
+        seeds = [HOUSE_SEED, mint.key().as_ref()],
         bump = house.load()?.bump,
         has_one = house_vault,
     )]
     pub house: AccountLoader<'info, HouseState>,
+     pub mint: Account<'info, Mint>,
     /// CHECK:
     #[account(
         mut,
@@ -73,10 +74,10 @@ impl UserSettle<'_> {
     pub fn actuate(ctx: &Context<Self>, _params: &UserSettleParams) -> anchor_lang::Result<()> {
         msg!("user_settle");
         let clock = Clock::get()?;
-
+        let mint = &mut ctx.accounts.mint.key();
         let house = ctx.accounts.house.load()?;
         let house_bump = house.bump.clone();
-        let house_seeds: &[&[&[u8]]] = &[&[&HOUSE_SEED, &[house_bump]]];
+         let house_seeds: &[&[&[u8]]] = &[&[&HOUSE_SEED, mint.as_ref() , &[house_bump]]];
         drop(house);
 
         let vrf = ctx.accounts.vrf.load()?;
