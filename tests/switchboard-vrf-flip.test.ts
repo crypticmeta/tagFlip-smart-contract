@@ -7,7 +7,8 @@ import { AnchorWallet } from "@switchboard-xyz/switchboard-v2";
 import { SwitchboardTestContext } from "@switchboard-xyz/sbv2-utils";
 import { GameTypeValue, House, User } from "../client";
 import { createFlipUser, FlipUser } from "../client/utils";
-import { PublicKey } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { createSyncNativeInstruction, getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from "@solana/spl-token-v2";
 
 describe("switchboard-vrf-flip", () => {
   // Configure the client to use the local cluster.
@@ -72,70 +73,102 @@ describe("switchboard-vrf-flip", () => {
 
     mint = await house.loadMint();
 
-    // payerTokenAccount = (
-    //   await spl.getOrCreateAssociatedTokenAccount(
-    //     connection,
-    //     payer,
-    //     mint.address,
-    //     payer.publicKey
-    //   )
-    // ).address;
-
-    // console.log(`PayerTokenAccount ${payerTokenAccount}`);
   });
 
-  it("initialize user 1", async () => {
-    try {
-      
-      flipUser = await createFlipUser(
-        (program.provider as anchor.AnchorProvider),
-        TOKENMINT,
-        program,
-        switchboard.queue);
-
-      console.log({
-        ...flipUser.user.toJSON(),
-        history: undefined,
-      });
-    } catch (error) {
-      console.error(error, 'err initializing user 1');
-      throw error;
-    }
-  });
-
-  // it("user 1 requests an airdrop", async () => {
-  //   if (flipUser === undefined) {
-  //     throw new Error(`failed to find user to place a bet for`);
-  //   }
-
+  // it("initialize user 1", async () => {
   //   try {
-  //     const startingBalance =
-  //       await program.provider.connection.getTokenAccountBalance(
-  //         flipUser.user.state.rewardAddress
-  //       );
-  //     const airdropTxn = await program.provider.connection.requestAirdrop(
-  //       flipUser.keypair.publicKey,
-  //       1 * anchor.web3.LAMPORTS_PER_SOL
-  //     );
-  //     await program.provider.connection.confirmTransaction(airdropTxn);
+      
+  //     flipUser = await createFlipUser(
+  //       (program.provider as anchor.AnchorProvider),
+  //       TOKENMINT,
+  //       program,
+  //       switchboard.queue);
 
-  //     const newTokenBalance =
-  //       await program.provider.connection.getTokenAccountBalance(
-  //         flipUser.user.state.rewardAddress
-  //       );
-
-  //     if (Number(newTokenBalance.value.amount) === Number(startingBalance)) {
-  //       throw new Error(`Failed to request an airdrop`);
-  //     } else {
-  //       console.log(
-  //         `Users Token Balance: ${newTokenBalance.value.uiAmountString}`
-  //       );
-  //     }
+  //     console.log({
+  //       ...flipUser.user.toJSON(),
+  //       history: undefined,
+  //     });
   //   } catch (error) {
-  //     console.error(error);
+  //     console.error(error, 'err initializing user 1');
   //     throw error;
   //   }
   // });
+
+  it("get flipUser",async() => {
+    if (flipUser === undefined) { 
+      //@ts-ignore
+      flipUser = await User.load(program, payer.publicKey, TOKENMINT);
+      // console.log(flipUser, 'flipUser')
+      // console.log(flipUser?.user.toJSON(), ' user');
+      //@ts-ignore
+      // console.log(flipUser.state, 'state')
+    }
+    else {
+      console.log('user newly created')
+    }
+  })
+
+  it("user 1 requests an airdrop", async () => {
+    if (flipUser === undefined) {
+      throw new Error(`failed to find user to airdrop`);
+    }
+
+    try {
+      const startingBalance =
+        await program.provider.connection.getTokenAccountBalance(
+          //@ts-ignore
+          flipUser.state.rewardAddress
+        );
+      const airdropTxn = await program.provider.connection.requestAirdrop(
+        payer.publicKey,
+        1 * anchor.web3.LAMPORTS_PER_SOL
+      );
+      await program.provider.connection.confirmTransaction(airdropTxn);
+
+      const newTokenBalance =
+        await program.provider.connection.getTokenAccountBalance(
+          //@ts-ignore
+          flipUser.state.rewardAddress
+        );
+      
+      if (TOKENMINT.toBase58() === "So11111111111111111111111111111111111111112")      
+      {
+        let instructions: TransactionInstruction[] = [];
+      const associatedTokenAcc = await getAssociatedTokenAddress(
+        TOKENMINT,
+        payer.publicKey
+      );
+        instructions.push(
+          SystemProgram.transfer({
+            fromPubkey: payer?.publicKey,
+            toPubkey: associatedTokenAcc,
+            lamports: Number(1 * LAMPORTS_PER_SOL),
+          })
+        );
+        instructions.push(
+          createSyncNativeInstruction(associatedTokenAcc, TOKEN_PROGRAM_ID)
+        );
+
+        const signature = await program.provider.sendAndConfirm!(
+          new Transaction().add(...instructions),
+          []
+        ).catch(err => console.log(err, 'err creating wsol'));
+
+        console.log(signature, 'tx')
+      }
+
+      if (Number(newTokenBalance.value.amount) === Number(startingBalance)) {
+        throw new Error(`Failed to request an airdrop`);
+      } else {
+        console.log(
+          `Users Token Balance: ${newTokenBalance.value.uiAmountString}`
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  });
 
   // it("user 1 places a bet", async () => {
   //   if (flipUser === undefined) {
