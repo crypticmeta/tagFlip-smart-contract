@@ -68,11 +68,14 @@ export async function createFlipUser(
   const switchboardProgram = queueAccount.program;
 
   const keypair = anchor.web3.Keypair.generate();
-  const airdropTxn = await program.provider.connection.requestAirdrop(
-    keypair.publicKey,
-    1 * anchor.web3.LAMPORTS_PER_SOL
-  );
-  await program.provider.connection.confirmTransaction(airdropTxn);
+  const loadUser = await User.load(program, userWallet.wallet.publicKey, TOKENMINT).catch(err => console.log(err, 'user account doesnt exist yet'));
+  if (!loadUser) {
+    const airdropTxn = await program.provider.connection.requestAirdrop(
+      keypair.publicKey,
+      1 * anchor.web3.LAMPORTS_PER_SOL
+    );
+    await program.provider.connection.confirmTransaction(airdropTxn);
+  }
 
   const provider = new anchor.AnchorProvider(
     switchboardProgram.provider.connection,
@@ -89,14 +92,18 @@ export async function createFlipUser(
     switchboardProgram.programId,
     provider
   );
-  const switchTokenWallet = await spl.createWrappedNativeAccount(
-    newSwitchboardProgram.provider.connection,
-    keypair,
-    keypair.publicKey,
-    wSolAmount * anchor.web3.LAMPORTS_PER_SOL
-  );
 
-  const loadUser = await User.load(program, userWallet.wallet.publicKey, TOKENMINT).catch(err=>console.log(err, 'user account doesnt exist yet'));
+  let switchTokenWallet = null;
+  if (!loadUser) {
+    switchTokenWallet = await spl.createWrappedNativeAccount(
+      newSwitchboardProgram.provider.connection,
+      keypair,
+      keypair.publicKey,
+      wSolAmount * anchor.web3.LAMPORTS_PER_SOL
+    );
+  }
+
+
   const switchTokenWallet2 = await spl.getAssociatedTokenAddress(
     TOKENMINT,
     userWallet.wallet.publicKey,
@@ -109,14 +116,15 @@ export async function createFlipUser(
       user: loadUser,
     };
   }
-  const user = await User.create(userWallet, flipProgram, newSwitchboardProgram, TOKENMINT);
-
-  return {
-    keypair,
-    switchboardProgram: newSwitchboardProgram,
-    switchTokenWallet,
-    user,
-  };
+  else {
+    const user = await User.create(userWallet, flipProgram, newSwitchboardProgram, TOKENMINT);
+    return {
+      keypair,
+      switchboardProgram: newSwitchboardProgram,
+      switchTokenWallet,
+      user,
+    };
+  }
 }
 
 export const tokenAmountToBig = (tokenAmount: anchor.BN, decimals = 9): Big => {
