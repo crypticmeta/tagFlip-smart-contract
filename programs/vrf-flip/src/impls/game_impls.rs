@@ -29,8 +29,8 @@ impl GameType {
             }),
             GameType::TwentySidedDiceRoll => Ok(GameConfig {
                 num_vrf_requests: 1,
-                min: 1,
-                max: 20,
+                min: 0,
+                max: 10,
                 payout_multiplier: 19,
             }),
             _ => Err(error!(VrfFlipError::InvalidGameType)),

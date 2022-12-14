@@ -142,7 +142,10 @@ impl UserBet<'_> {
         }
 
         let house_vault_balance = ctx.accounts.house_vault.amount;
-        if params.bet_amount * 10 > house_vault_balance || params.bet_amount > MAX_BET_AMOUNT {
+        msg!("house vault bal: {}",house_vault_balance);
+        msg!("bet_amount*10 > house balance?  {}",params.bet_amount * 10 > house_vault_balance);
+        msg!("bet_amount > max_bet?  {}",params.bet_amount > MAX_BET_AMOUNT);
+        if params.bet_amount * 2 > house_vault_balance || params.bet_amount > MAX_BET_AMOUNT {
             return Err(error!(VrfFlipError::MaxBetAmountExceeded));
         }
 
@@ -197,6 +200,10 @@ impl UserBet<'_> {
 
         drop(user);
 
+        msg!("escrow key = {}",ctx.accounts.escrow.key().to_string());
+        msg!("escrow amount = {}",ctx.accounts.escrow.amount);
+                msg!("bet amount = {}",params.bet_amount);
+
         if ctx.accounts.escrow.amount >= params.bet_amount {
             msg!("escrow already funded");
         } else {
@@ -208,6 +215,7 @@ impl UserBet<'_> {
                 "transferring {} flip tokens to escrow",
                 escrow_transfer_amount
             );
+            //transfer to user escrow
             token::transfer(
                 CpiContext::new(
                     ctx.accounts.token_program.to_account_info().clone(),

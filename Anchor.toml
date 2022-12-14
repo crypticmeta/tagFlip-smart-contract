@@ -12,7 +12,7 @@ url = "https://anchor.projectserum.com"
 # cluster = "localnet"
 # wallet = "../payer-keypair.json"
 cluster = "devnet"
-wallet = "./user.json"
+wallet = "./program-authority.json"
 
 [scripts]
 test = "npx mocha --extension ts --require ts-node/register -t 1000000 tests/**/*.test.ts"

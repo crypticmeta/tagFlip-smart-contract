@@ -75,24 +75,24 @@ describe("switchboard-vrf-flip", () => {
 
   });
 
-  // it("initialize user 1", async () => {
-  //   try {
+  it("initialize user 1", async () => {
+    try {
       
-  //     flipUser = await createFlipUser(
-  //       (program.provider as anchor.AnchorProvider),
-  //       TOKENMINT,
-  //       program,
-  //       switchboard.queue);
+      flipUser = await createFlipUser(
+        (program.provider as anchor.AnchorProvider),
+        TOKENMINT,
+        program,
+        switchboard.queue);
 
-  //     console.log({
-  //       ...flipUser.user.toJSON(),
-  //       history: undefined,
-  //     });
-  //   } catch (error) {
-  //     console.error(error, 'err initializing user 1');
-  //     throw error;
-  //   }
-  // });
+      console.log({
+        ...flipUser.user.toJSON(),
+        history: undefined,
+      });
+    } catch (error) {
+      console.error(error, 'err initializing user 1');
+      throw error;
+    }
+  });
 
   it("get flipUser",async() => {
     if (flipUser === undefined) { 
@@ -183,10 +183,9 @@ describe("switchboard-vrf-flip", () => {
       await flipUser.user.placeBetAndAwaitFlip(
         TOKENMINT,
         GameTypeValue.COIN_FLIP,
-        2,
-        new anchor.BN(0.5),
-        flipUser.switchTokenWallet,
-        45
+        1,
+        new anchor.BN(0.03*LAMPORTS_PER_SOL),
+        flipUser.switchTokenWallet
       ).catch(err=>console.log(err=>"errr... not won"));
       flipUser = await createFlipUser(
         (program.provider as anchor.AnchorProvider),
